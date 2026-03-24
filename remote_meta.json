@@ -1,0 +1,10 @@
+{
+  "api_base_url": "https://localhost:3000/api",
+  "panel_url": "http://localhost:3000/kicadLibrary",
+  "parts_endpoint_template": "/parts/{part_id}",
+  "session_bootstrap_url": "",
+  "allow_insecure_localhost": false,
+  "auth": {
+    "type": "none"
+  }
+}

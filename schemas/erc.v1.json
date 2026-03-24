@@ -1,0 +1,195 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.kicad.org/erc.v1.json",
+  "title": "KiCad ERC Report Schema",
+  "description": "KiCad Electrical Rules Check (ERC) Results Report generated from schematics",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON schema reference"
+    },
+    "source": {
+      "type": "string",
+      "description": "Source file path"
+    },
+    "date": {
+      "type": "string",
+      "description": "Time at generation of report",
+      "format": "date-time"
+    },
+    "kicad_version": {
+      "type": "string",
+      "description": "KiCad version used to generate the report",
+      "pattern": "^\\d{1,2}(\\.\\d{1,2}(\\.\\d{1,2})?)?$"
+    },
+    "sheets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Sheet"
+      }
+    },
+    "coordinate_units": {
+      "type": "string",
+      "description": "Units that all coordinates in this report are encoded in",
+      "enum": [
+        "mm",
+        "mils",
+        "in"
+      ]
+    },
+    "included_severities": {
+      "type": "array",
+      "description": "List of severities included in this report (e.g., error, warning, exclusion)",
+      "items": {
+        "type": "string",
+        "enum": [
+          "error",
+          "warning",
+          "exclusion"
+        ]
+      }
+    },
+    "ignored_checks": {
+      "type": "array",
+      "description": "List of checks that are ignored (severity set to ignore)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Machine-readable settings key for the ignored check"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of the ignored check"
+          }
+        },
+        "required": ["key", "description"]
+      }
+    }
+  },
+  "required": [
+    "source",
+    "date",
+    "kicad_version",
+    "sheets"
+  ],
+  "definitions": {
+    "Sheet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uuid_path": {
+          "$ref": "#/definitions/UuidPath"
+        },
+        "path": {
+          "type": "string",
+          "description": "KiCad type name for the violation"
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Violation"
+          }
+        }
+      },
+      "required": [
+        "uuid_path",
+        "path",
+        "violations"
+      ]
+    },
+    "Violation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "KiCad type name for the violation"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the violation"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AffectedItem"
+          }
+        },
+        "excluded": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "type",
+        "description",
+        "severity",
+        "items"
+      ]
+    },
+    "AffectedItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uuid": {
+          "$ref": "#/definitions/Uuid"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the item"
+        },
+        "pos": {
+          "$ref": "#/definitions/Coordinate"
+        }
+      },
+      "required": [
+        "uuid",
+        "description",
+        "pos"
+      ]
+    },
+    "UuidPath": {
+      "type": "string",
+      "description": "Path based on chain of Uuids",
+      "pattern": "^(/[0-9a-fA-F]{8}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{12})+$"
+    },
+    "Uuid": {
+      "type": "string",
+      "description": "Unique identifier of the item",
+      "pattern": "^[0-9a-fA-F]{8}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{4}\\b-[0-9a-fA-F]{12}$"
+    },
+    "Severity": {
+      "type": "string",
+      "description": "Severity of the violation",
+      "enum": [
+        "error",
+        "warning"
+      ]
+    },
+    "Coordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "x coordinate"
+        },
+        "y": {
+          "type": "number",
+          "description": "y coordinate"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    }
+  }
+}
