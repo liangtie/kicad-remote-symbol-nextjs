@@ -1,5 +1,5 @@
 {
-    "symbol" : "/data/LM73.kicad_sym",
-    "footprint" : "/data/SOT-23-6.kicad_mod",
-    "3dmodel" : "/data/SOT-23-6.step"
+    "symbol" : "http://localhost:3000/data/LM73.kicad_sym",
+    "footprint" : "http://localhost:3000/data/SOT-23-6.kicad_mod",
+    "3dmodel" : "http://localhost:3000/data/SOT-23-6.step"
 }
