@@ -22,7 +22,6 @@ declare global {
 export default function KicadLibraryPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messageIdCounter, setMessageIdCounter] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [consoleMessages, setConsoleMessages] = useState<{type: 'send' | 'receive', message: string}[]>([]);
 
@@ -44,8 +43,7 @@ export default function KicadLibraryPage() {
       console.log('Received message from KiCad:', message);
       setConsoleMessages(prev => [...prev, {type: 'receive', message: messageString}]);
 
-      // Log the current isLoading state
-      console.log('Current isLoading state:', isLoading);
+
 
       // Handle NEW_SESSION notification from KiCad
       if (message.command === 'NEW_SESSION' && message.status === 'OK') {
@@ -56,7 +54,6 @@ export default function KicadLibraryPage() {
           // Use the sendPlaceComponentCommand function with the new session ID
           sendPlaceComponentCommand(newSessionId).catch(error => {
             console.error('Error sending PLACE_COMPONENT command:', error);
-            setIsLoading(false);
             setError('Failed to send component: ' + (error as Error).message);
           });
         }
@@ -66,12 +63,8 @@ export default function KicadLibraryPage() {
       if (message.command === 'PLACE_COMPONENT') {
         console.log('Handling PLACE_COMPONENT response:', message.status);
         if (message.status === 'OK') {
-          console.log('Setting isLoading to false');
-          setIsLoading(false);
           alert('Component placed successfully!');
         } else {
-          console.log('Setting isLoading to false due to error');
-          setIsLoading(false);
           setError(`Error placing component: ${message.error_message || 'Unknown error'}`);
         }
       }
@@ -116,7 +109,6 @@ export default function KicadLibraryPage() {
 
   const handlePlaceComponent = async () => {
     try {
-      setIsLoading(true);
       setError(null);
 
       if (!sessionId) {
@@ -137,7 +129,6 @@ export default function KicadLibraryPage() {
             // Set another timeout to check if we get a session ID
             setTimeout(() => {
               if (!sessionId) {
-                setIsLoading(false);
                 setError('Failed to get session ID from KiCad');
               }
             }, 5000); // Timeout after another 5 seconds if no session ID received
@@ -149,7 +140,6 @@ export default function KicadLibraryPage() {
       }
     } catch (error) {
       console.error('Error in handlePlaceComponent:', error);
-      setIsLoading(false);
       setError('Failed to place component: ' + (error as Error).message);
     }
   };
@@ -224,11 +214,11 @@ export default function KicadLibraryPage() {
         version: 1,
         session_id: idToUse,
         message_id: messageIdCounter,
-        command: 'PLACE_COMPONENT',
+        command: 'DL_COMPONENT',  // TODO change to 'PLACE_COMPONENT'
         parameters: {
           part_id: 'LM73',
           display_name: 'LM73 Temperature Sensor',
-          mode: 'PLACE',
+          mode: 'SAVE', // TODO change to 'PLACE'
           assets: processedAssets
         }
       };
@@ -237,7 +227,6 @@ export default function KicadLibraryPage() {
       setMessageIdCounter(prev => prev + 1);
     } catch (error) {
       console.error('Error processing assets:', error);
-      setIsLoading(false);
       setError('Failed to process assets: ' + (error as Error).message);
     }
   };
@@ -254,10 +243,9 @@ export default function KicadLibraryPage() {
       
       <button 
         onClick={handlePlaceComponent} 
-        disabled={isLoading}
         className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded mb-4"
       >
-        {isLoading ? 'Processing...' : 'Place Component'}
+        Place Component
       </button>
       
       {sessionId && (
