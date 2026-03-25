@@ -2,14 +2,19 @@
 import { useEffect, useState } from 'react';
 import samplePart from '../../data/sample_part.json';
 
-// KiCad message channel type declaration
+// KiCad message channel type declarations
 interface KiCadMessageChannel {
+  postMessage(message: string): void;
+}
+
+interface KiClientMessageChannel {
   postMessage(message: string): void;
 }
 
 declare global {
   interface Window {
     kicad?: KiCadMessageChannel;
+    kiclient?: KiClientMessageChannel;
   }
 }
 
@@ -18,25 +23,35 @@ export default function KicadLibraryPage() {
   const [messageIdCounter, setMessageIdCounter] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [consoleMessages, setConsoleMessages] = useState<{type: 'send' | 'receive', message: string}[]>([]);
 
   const sendMessageToKiCad = (message: any) => {
     if (window.kicad) {
-      window.kicad.postMessage(JSON.stringify(message));
+      const messageString = JSON.stringify(message, null, 2);
+      window.kicad.postMessage(messageString);
+      setConsoleMessages(prev => [...prev, {type: 'send', message: messageString}]);
     } else {
       console.error('KiCad message channel not available');
       setError('KiCad message channel not available');
     }
   };
 
-  const handleKiCadMessage = (event: MessageEvent) => {
+  // Process incoming message from KiCad
+  const processMessage = (messageString: string) => {
     try {
-      const message = JSON.parse(event.data);
+      const message = JSON.parse(messageString);
       console.log('Received message from KiCad:', message);
+      setConsoleMessages(prev => [...prev, {type: 'receive', message: messageString}]);
 
-      // Handle NEW_SESSION response
+      // Handle NEW_SESSION notification from KiCad
       if (message.command === 'NEW_SESSION' && message.status === 'OK') {
-        setSessionId(message.session_id);
-        setIsLoading(false);
+        const newSessionId = message.session_id;
+        setSessionId(newSessionId);
+        // Store session ID and send PLACE_COMPONENT command
+        if (newSessionId) {
+          // Use the sendPlaceComponentCommand function with the new session ID
+          sendPlaceComponentCommand(newSessionId);
+        }
       }
 
       // Handle PLACE_COMPONENT response
@@ -46,7 +61,7 @@ export default function KicadLibraryPage() {
           alert('Component placed successfully!');
         } else {
           setIsLoading(false);
-          setError(`Error placing component: ${message.message || 'Unknown error'}`);
+          setError(`Error placing component: ${message.error_message || 'Unknown error'}`);
         }
       }
     } catch (e) {
@@ -54,7 +69,30 @@ export default function KicadLibraryPage() {
     }
   };
 
+  // Handle messages from window.postMessage
+  const handleKiCadMessage = (event: MessageEvent) => {
+    processMessage(event.data);
+  };
+
+  // Install KiClient bridge
+  const installKiClientBridge = () => {
+    const existing = window.kiclient || {};
+    const previousPost = typeof existing.postMessage === "function" ? existing.postMessage.bind(existing) : null;
+
+    existing.postMessage = function (incoming: string) {
+      processMessage(incoming);
+      if (previousPost) {
+        previousPost(incoming);
+      }
+    };
+
+    window.kiclient = existing;
+  };
+
   useEffect(() => {
+    // Install KiClient bridge
+    installKiClientBridge();
+
     // Set up event listener for messages from KiCad
     window.addEventListener('message', handleKiCadMessage);
 
@@ -69,29 +107,42 @@ export default function KicadLibraryPage() {
     setError(null);
 
     if (!sessionId) {
-      // First, send NEW_SESSION to get a session ID
-      const newSessionMessage = {
-        version: 1,
-        message_id: messageIdCounter,
-        command: 'NEW_SESSION'
-      };
+      // Wait for session ID from KiCad's NEW_SESSION notification
+      // If we don't get one within 5 seconds, send our own NEW_SESSION message
+      setTimeout(() => {
+        if (!sessionId) {
+          // Send our own NEW_SESSION message as a fallback
+          const newSessionMessage = {
+            version: 1,
+            message_id: messageIdCounter,
+            command: 'NEW_SESSION'
+          };
 
-      sendMessageToKiCad(newSessionMessage);
-      setMessageIdCounter(prev => prev + 1);
+          sendMessageToKiCad(newSessionMessage);
+          setMessageIdCounter(prev => prev + 1);
 
-      // Wait for session ID (handled by the event listener)
+          // Set another timeout to check if we get a session ID
+          setTimeout(() => {
+            if (!sessionId) {
+              setIsLoading(false);
+              setError('Failed to get session ID from KiCad');
+            }
+          }, 5000); // Timeout after another 5 seconds if no session ID received
+        }
+      }, 1000); // Wait 1 second before sending our own NEW_SESSION as fallback
     } else {
       // We already have a session ID, send PLACE_COMPONENT directly
       sendPlaceComponentCommand();
     }
   };
 
-  const sendPlaceComponentCommand = () => {
-    if (!sessionId) return;
+  const sendPlaceComponentCommand = (currentSessionId?: string) => {
+    const idToUse = currentSessionId || sessionId;
+    if (!idToUse) return;
 
     const placeComponentMessage = {
       version: 1,
-      session_id: sessionId,
+      session_id: idToUse,
       message_id: messageIdCounter,
       command: 'PLACE_COMPONENT',
       parameters: {
@@ -139,10 +190,10 @@ export default function KicadLibraryPage() {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">KiCad Library Panel</h1>
+      <h1 className="text-2xl font-bold mb-4 text-gray-100">KiCad Library Panel</h1>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
@@ -150,20 +201,41 @@ export default function KicadLibraryPage() {
       <button 
         onClick={handlePlaceComponent} 
         disabled={isLoading}
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4"
+        className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded mb-4"
       >
         {isLoading ? 'Processing...' : 'Place Component'}
       </button>
       
       {sessionId && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        <div className="bg-green-900 border border-green-700 text-green-300 px-4 py-3 rounded mb-4">
           Session ID: {sessionId}
         </div>
       )}
       
-      <div className="bg-gray-100 p-4 rounded">
-        <h2 className="text-xl font-semibold mb-2">Sample Part</h2>
-        <pre className="whitespace-pre-wrap">{JSON.stringify(samplePart, null, 2)}</pre>
+      <div className="bg-gray-800 p-4 rounded mb-4">
+        <h2 className="text-xl font-semibold mb-2 text-gray-100">Sample Part</h2>
+        <pre className="whitespace-pre-wrap text-gray-300">{JSON.stringify(samplePart, null, 2)}</pre>
+      </div>
+      
+      <div className="bg-gray-800 p-4 rounded">
+        <h2 className="text-xl font-semibold mb-2 text-gray-100">Console</h2>
+        <div className="border border-gray-700 rounded p-2 max-h-60 overflow-y-auto">
+          {consoleMessages.length === 0 ? (
+            <p className="text-gray-500">No messages yet</p>
+          ) : (
+            consoleMessages.map((msg, index) => (
+              <div 
+                key={index} 
+                className={`mb-2 p-2 rounded ${msg.type === 'send' ? 'bg-blue-900/50' : 'bg-green-900/50'}`}
+              >
+                <div className={`text-sm font-semibold ${msg.type === 'send' ? 'text-blue-400' : 'text-green-400'}`}>
+                  {msg.type === 'send' ? 'Sent:' : 'Received:'}
+                </div>
+                <pre className="text-sm whitespace-pre-wrap text-gray-300">{msg.message}</pre>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
