@@ -41,8 +41,11 @@ export default function KicadLibraryPage() {
   const processMessage = (messageString: string) => {
     try {
       const message = JSON.parse(messageString);
-      console.log('Received message from KiCad:', messageString);
+      console.log('Received message from KiCad:', message);
       setConsoleMessages(prev => [...prev, {type: 'receive', message: messageString}]);
+
+      // Log the current isLoading state
+      console.log('Current isLoading state:', isLoading);
 
       // Handle NEW_SESSION notification from KiCad
       if (message.command === 'NEW_SESSION' && message.status === 'OK') {
@@ -61,10 +64,13 @@ export default function KicadLibraryPage() {
 
       // Handle PLACE_COMPONENT response
       if (message.command === 'PLACE_COMPONENT') {
+        console.log('Handling PLACE_COMPONENT response:', message.status);
         if (message.status === 'OK') {
+          console.log('Setting isLoading to false');
           setIsLoading(false);
           alert('Component placed successfully!');
         } else {
+          console.log('Setting isLoading to false due to error');
           setIsLoading(false);
           setError(`Error placing component: ${message.error_message || 'Unknown error'}`);
         }
@@ -109,42 +115,42 @@ export default function KicadLibraryPage() {
   }, []);
 
   const handlePlaceComponent = async () => {
-    setIsLoading(true);
-    setError(null);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-    if (!sessionId) {
-      // Wait for session ID from KiCad's NEW_SESSION notification
-      // If we don't get one within 5 seconds, send our own NEW_SESSION message
-      setTimeout(() => {
-        if (!sessionId) {
-          // Send our own NEW_SESSION message as a fallback
-          const newSessionMessage = {
-            version: 1,
-            message_id: messageIdCounter,
-            command: 'NEW_SESSION'
-          };
+      if (!sessionId) {
+        // Wait for session ID from KiCad's NEW_SESSION notification
+        // If we don't get one within 5 seconds, send our own NEW_SESSION message
+        setTimeout(() => {
+          if (!sessionId) {
+            // Send our own NEW_SESSION message as a fallback
+            const newSessionMessage = {
+              version: 1,
+              message_id: messageIdCounter,
+              command: 'NEW_SESSION'
+            };
 
-          sendMessageToKiCad(newSessionMessage);
-          setMessageIdCounter(prev => prev + 1);
+            sendMessageToKiCad(newSessionMessage);
+            setMessageIdCounter(prev => prev + 1);
 
-          // Set another timeout to check if we get a session ID
-          setTimeout(() => {
-            if (!sessionId) {
-              setIsLoading(false);
-              setError('Failed to get session ID from KiCad');
-            }
-          }, 5000); // Timeout after another 5 seconds if no session ID received
-        }
-      }, 1000); // Wait 1 second before sending our own NEW_SESSION as fallback
-    } else {
-      // We already have a session ID, send PLACE_COMPONENT directly
-      try {
+            // Set another timeout to check if we get a session ID
+            setTimeout(() => {
+              if (!sessionId) {
+                setIsLoading(false);
+                setError('Failed to get session ID from KiCad');
+              }
+            }, 5000); // Timeout after another 5 seconds if no session ID received
+          }
+        }, 1000); // Wait 1 second before sending our own NEW_SESSION as fallback
+      } else {
+        // We already have a session ID, send PLACE_COMPONENT directly
         await sendPlaceComponentCommand();
-      } catch (error) {
-        console.error('Error sending PLACE_COMPONENT command:', error);
-        setIsLoading(false);
-        setError('Failed to send component: ' + (error as Error).message);
       }
+    } catch (error) {
+      console.error('Error in handlePlaceComponent:', error);
+      setIsLoading(false);
+      setError('Failed to place component: ' + (error as Error).message);
     }
   };
 
