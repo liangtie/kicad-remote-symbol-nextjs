@@ -15,6 +15,7 @@ declare global {
   interface Window {
     kicad?: KiCadMessageChannel;
     kiclient?: KiClientMessageChannel;
+    kicadMessages?: string[];
   }
 }
 
@@ -40,7 +41,7 @@ export default function KicadLibraryPage() {
   const processMessage = (messageString: string) => {
     try {
       const message = JSON.parse(messageString);
-      console.log('Received message from KiCad:', message);
+      console.log('Received message from KiCad:', messageString);
       setConsoleMessages(prev => [...prev, {type: 'receive', message: messageString}]);
 
       // Handle NEW_SESSION notification from KiCad
@@ -78,27 +79,28 @@ export default function KicadLibraryPage() {
     processMessage(event.data);
   };
 
-  // Install KiClient bridge
-  const installKiClientBridge = () => {
-    const existing = window.kiclient || {};
-    const previousPost = typeof existing.postMessage === "function" ? existing.postMessage.bind(existing) : null;
-
-    existing.postMessage = function (incoming: string) {
-      processMessage(incoming);
-      if (previousPost) {
-        previousPost(incoming);
-      }
-    };
-
-    window.kiclient = existing;
-  };
-
   useEffect(() => {
-    // Install KiClient bridge
-    installKiClientBridge();
-
     // Set up event listener for messages from KiCad
     window.addEventListener('message', handleKiCadMessage);
+
+    // Process any messages that were stored by the bridge before this component mounted
+    if (window.kicadMessages && window.kicadMessages.length > 0) {
+      window.kicadMessages.forEach(message => processMessage(message));
+      // Clear the stored messages
+      window.kicadMessages = [];
+    }
+
+    // Update the kiclient postMessage to process messages directly
+    if (window.kiclient) {
+      const previousPost = typeof window.kiclient.postMessage === "function" ? window.kiclient.postMessage.bind(window.kiclient) : null;
+      
+      window.kiclient.postMessage = function (incoming: string) {
+        processMessage(incoming);
+        if (previousPost) {
+          previousPost(incoming);
+        }
+      };
+    }
 
     // Clean up event listener on unmount
     return () => {
@@ -178,7 +180,7 @@ export default function KicadLibraryPage() {
         name: 'LM73',
         target_library: 'Remote',
         target_name: 'LM73',
-        content_type: 'application/json',
+        content_type: 'application/octet-stream',
         download_url: samplePart.symbol
       },
       {
@@ -186,7 +188,7 @@ export default function KicadLibraryPage() {
         name: 'SOT-23-6',
         target_library: 'Remote',
         target_name: 'SOT-23-6',
-        content_type: 'application/json',
+        content_type: 'application/octet-stream',
         download_url: samplePart.footprint
       },
       {
@@ -194,7 +196,7 @@ export default function KicadLibraryPage() {
         name: 'SOT-23-6',
         target_library: 'Remote',
         target_name: 'SOT-23-6',
-        content_type: 'application/step',
+        content_type: 'application/octet-stream',
         download_url: samplePart['3dmodel']
       }
     ];

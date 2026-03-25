@@ -27,6 +27,31 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            // Install KiClient bridge as early as possible
+            (function() {
+              const existing = window.kiclient || {};
+              const previousPost = typeof existing.postMessage === "function" ? existing.postMessage.bind(existing) : null;
+              
+              existing.postMessage = function(incoming) {
+                // Store message for later processing
+                if (!window.kicadMessages) {
+                  window.kicadMessages = [];
+                }
+                window.kicadMessages.push(incoming);
+                
+                if (previousPost) {
+                  previousPost(incoming);
+                }
+              };
+              
+              window.kiclient = existing;
+            })();
+          `
+        }} />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
