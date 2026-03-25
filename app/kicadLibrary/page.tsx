@@ -50,7 +50,11 @@ export default function KicadLibraryPage() {
         // Store session ID and send PLACE_COMPONENT command
         if (newSessionId) {
           // Use the sendPlaceComponentCommand function with the new session ID
-          sendPlaceComponentCommand(newSessionId);
+          sendPlaceComponentCommand(newSessionId).catch(error => {
+            console.error('Error sending PLACE_COMPONENT command:', error);
+            setIsLoading(false);
+            setError('Failed to send component: ' + (error as Error).message);
+          });
         }
       }
 
@@ -132,60 +136,102 @@ export default function KicadLibraryPage() {
       }, 1000); // Wait 1 second before sending our own NEW_SESSION as fallback
     } else {
       // We already have a session ID, send PLACE_COMPONENT directly
-      sendPlaceComponentCommand();
+      try {
+        await sendPlaceComponentCommand();
+      } catch (error) {
+        console.error('Error sending PLACE_COMPONENT command:', error);
+        setIsLoading(false);
+        setError('Failed to send component: ' + (error as Error).message);
+      }
     }
   };
 
-  const sendPlaceComponentCommand = (currentSessionId?: string) => {
+  // Function to compute SHA256 hash
+  const computeSHA256 = async (data: ArrayBuffer): Promise<string> => {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  // Function to download asset and calculate size and SHA256
+  const processAsset = async (asset: any): Promise<{size_bytes: number, sha256: string}> => {
+    try {
+      const response = await fetch(asset.download_url);
+      const data = await response.arrayBuffer();
+      const size_bytes = data.byteLength;
+      const sha256 = await computeSHA256(data);
+      return { size_bytes, sha256 };
+    } catch (error) {
+      console.error(`Error processing asset ${asset.name}:`, error);
+      throw error;
+    }
+  };
+
+  const sendPlaceComponentCommand = async (currentSessionId?: string) => {
     const idToUse = currentSessionId || sessionId;
     if (!idToUse) return;
 
-    const placeComponentMessage = {
-      version: 1,
-      session_id: idToUse,
-      message_id: messageIdCounter,
-      command: 'PLACE_COMPONENT',
-      parameters: {
-        part_id: 'LM73',
-        display_name: 'LM73 Temperature Sensor',
-        mode: 'PLACE',
-        assets: [
-          {
-            asset_type: 'symbol',
-            name: 'LM73',
-            target_library: 'Remote',
-            target_name: 'LM73',
-            content_type: 'application/json',
-            download_url: samplePart.symbol,
-            size_bytes: 1024, // Placeholder
-            sha256: '' // Placeholder
-          },
-          {
-            asset_type: 'footprint',
-            name: 'SOT-23-6',
-            target_library: 'Remote',
-            target_name: 'SOT-23-6',
-            content_type: 'application/json',
-            download_url: samplePart.footprint,
-            size_bytes: 1024, // Placeholder
-            sha256: '' // Placeholder
-          },
-          {
-            asset_type: '3dmodel',
-            name: 'SOT-23-6',
-            target_library: 'Remote',
-            target_name: 'SOT-23-6',
-            content_type: 'application/step',
-            download_url: samplePart['3dmodel'],
-            size_bytes: 1024, // Placeholder
-            sha256: '' // Placeholder
-          }
-        ]
+    // Process each asset to get size and SHA256
+    const assets = [
+      {
+        asset_type: 'symbol',
+        name: 'LM73',
+        target_library: 'Remote',
+        target_name: 'LM73',
+        content_type: 'application/json',
+        download_url: samplePart.symbol
+      },
+      {
+        asset_type: 'footprint',
+        name: 'SOT-23-6',
+        target_library: 'Remote',
+        target_name: 'SOT-23-6',
+        content_type: 'application/json',
+        download_url: samplePart.footprint
+      },
+      {
+        asset_type: '3dmodel',
+        name: 'SOT-23-6',
+        target_library: 'Remote',
+        target_name: 'SOT-23-6',
+        content_type: 'application/step',
+        download_url: samplePart['3dmodel']
       }
-    };
+    ];
 
-    sendMessageToKiCad(placeComponentMessage);
-    setMessageIdCounter(prev => prev + 1);
+    try {
+      // Process all assets in parallel
+      const processedAssets = await Promise.all(
+        assets.map(async (asset) => {
+          const { size_bytes, sha256 } = await processAsset(asset);
+          return {
+            ...asset,
+            size_bytes,
+            sha256
+          };
+        })
+      );
+
+      const placeComponentMessage = {
+        version: 1,
+        session_id: idToUse,
+        message_id: messageIdCounter,
+        command: 'PLACE_COMPONENT',
+        parameters: {
+          part_id: 'LM73',
+          display_name: 'LM73 Temperature Sensor',
+          mode: 'PLACE',
+          assets: processedAssets
+        }
+      };
+
+      sendMessageToKiCad(placeComponentMessage);
+      setMessageIdCounter(prev => prev + 1);
+    } catch (error) {
+      console.error('Error processing assets:', error);
+      setIsLoading(false);
+      setError('Failed to process assets: ' + (error as Error).message);
+    }
   };
 
   return (
