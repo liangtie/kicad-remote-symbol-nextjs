@@ -49,14 +49,6 @@ export default function KicadLibraryPage() {
       if (message.command === 'NEW_SESSION' && message.status === 'OK') {
         const newSessionId = message.session_id;
         setSessionId(newSessionId);
-        // Store session ID and send PLACE_COMPONENT command
-        if (newSessionId) {
-          // Use the sendPlaceComponentCommand function with the new session ID
-          sendPlaceComponentCommand(newSessionId).catch(error => {
-            console.error('Error sending PLACE_COMPONENT command:', error);
-            setError('Failed to send component: ' + (error as Error).message);
-          });
-        }
       }
 
       // Handle PLACE_COMPONENT response
@@ -170,28 +162,29 @@ export default function KicadLibraryPage() {
     if (!idToUse) return;
 
     // Process each asset to get size and SHA256
+    const MPN = 'LM73';
     const assets = [
       {
         asset_type: 'symbol',
-        name: 'LM73',
-        target_library: 'Remote',
-        target_name: 'LM73',
+        name: MPN,
+        target_library: `nextpcb-${MPN}`,
+        target_name: MPN,
         content_type: 'application/octet-stream',
         download_url: samplePart.symbol
       },
       {
         asset_type: 'footprint',
-        name: 'SOT-23-6',
-        target_library: 'Remote',
-        target_name: 'SOT-23-6',
+        name: MPN,
+        target_library: 'nextpcb',
+        target_name: MPN,
         content_type: 'application/octet-stream',
         download_url: samplePart.footprint
       },
       {
         asset_type: '3dmodel',
-        name: 'SOT-23-6',
-        target_library: 'Remote',
-        target_name: 'SOT-23-6',
+        name: MPN,
+        target_library: 'nextpcb',
+        target_name: MPN,
         content_type: 'application/octet-stream',
         download_url: samplePart['3dmodel']
       }
