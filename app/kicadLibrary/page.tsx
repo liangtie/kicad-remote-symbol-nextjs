@@ -202,7 +202,7 @@ export default function KicadLibraryPage() {
       },
       {
         asset_type: "3dmodel",
-        name: samplePart["3dmodel"].split('/').pop().split('.').slice(0, -1).join('.') || MPN,
+        name: samplePart["3dmodel"]?.split('/').pop()?.split('.').slice(0, -1).join('.') || MPN,
         target_library: "nextpcb",
         target_name: samplePart["3dmodel"].split('/').pop() || MPN,
         content_type: "application/octet-stream",
