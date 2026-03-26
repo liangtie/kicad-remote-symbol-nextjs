@@ -16,6 +16,7 @@ declare global {
     kicad?: KiCadMessageChannel;
     kiclient?: KiClientMessageChannel;
     kicadMessages?: string[];
+    kicadSessionId?: string;
   }
 }
 
@@ -48,6 +49,7 @@ export default function KicadLibraryPage() {
       // Handle NEW_SESSION notification from KiCad
       if (message.command === 'NEW_SESSION' && message.status === 'OK') {
         const newSessionId = message.session_id;
+        window.kicadSessionId = newSessionId;
         setSessionId(newSessionId);
       }
 
@@ -71,6 +73,11 @@ export default function KicadLibraryPage() {
   };
 
   useEffect(() => {
+    // Check if session ID already exists in window
+    if (window.kicadSessionId) {
+      setSessionId(window.kicadSessionId);
+    }
+
     // Set up event listener for messages from KiCad
     window.addEventListener('message', handleKiCadMessage);
 
@@ -157,8 +164,8 @@ export default function KicadLibraryPage() {
     }
   };
 
-  const sendPlaceComponentCommand = async (currentSessionId?: string) => {
-    const idToUse = currentSessionId || sessionId;
+  const sendPlaceComponentCommand = async () => {
+    const idToUse = sessionId;
     if (!idToUse) return;
 
     // Process each asset to get size and SHA256
