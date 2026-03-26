@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from 'react';
-import samplePart from '../../data/sample_part.json';
+import { useEffect, useState } from "react";
+import samplePart from "../../data/sample_part.json";
 
 // KiCad message channel type declarations
 interface KiCadMessageChannel {
@@ -24,16 +24,21 @@ export default function KicadLibraryPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messageIdCounter, setMessageIdCounter] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [consoleMessages, setConsoleMessages] = useState<{type: 'send' | 'receive', message: string}[]>([]);
+  const [consoleMessages, setConsoleMessages] = useState<
+    { type: "send" | "receive"; message: string }[]
+  >([]);
 
   const sendMessageToKiCad = (message: any) => {
     if (window.kicad) {
       const messageString = JSON.stringify(message, null, 2);
       window.kicad.postMessage(messageString);
-      setConsoleMessages(prev => [...prev, {type: 'send', message: messageString}]);
+      setConsoleMessages((prev) => [
+        ...prev,
+        { type: "send", message: messageString },
+      ]);
     } else {
-      console.error('KiCad message channel not available');
-      setError('KiCad message channel not available');
+      console.error("KiCad message channel not available");
+      setError("KiCad message channel not available");
     }
   };
 
@@ -41,29 +46,32 @@ export default function KicadLibraryPage() {
   const processMessage = (messageString: string) => {
     try {
       const message = JSON.parse(messageString);
-      console.log('Received message from KiCad:', message);
-      setConsoleMessages(prev => [...prev, {type: 'receive', message: messageString}]);
-
-
+      console.log("Received message from KiCad:", message);
+      setConsoleMessages((prev) => [
+        ...prev,
+        { type: "receive", message: messageString },
+      ]);
 
       // Handle NEW_SESSION notification from KiCad
-      if (message.command === 'NEW_SESSION' && message.status === 'OK') {
+      if (message.command === "NEW_SESSION" && message.status === "OK") {
         const newSessionId = message.session_id;
         window.kicadSessionId = newSessionId;
         setSessionId(newSessionId);
       }
 
       // Handle PLACE_COMPONENT response
-      if (message.command === 'PLACE_COMPONENT') {
-        console.log('Handling PLACE_COMPONENT response:', message.status);
-        if (message.status === 'OK') {
-          alert('Component placed successfully!');
+      if (message.command === "PLACE_COMPONENT") {
+        console.log("Handling PLACE_COMPONENT response:", message.status);
+        if (message.status === "OK") {
+          alert("Component placed successfully!");
         } else {
-          setError(`Error placing component: ${message.error_message || 'Unknown error'}`);
+          setError(
+            `Error placing component: ${message.error_message || "Unknown error"}`,
+          );
         }
       }
     } catch (e) {
-      console.error('Error parsing message from KiCad:', e);
+      console.error("Error parsing message from KiCad:", e);
     }
   };
 
@@ -79,19 +87,22 @@ export default function KicadLibraryPage() {
     }
 
     // Set up event listener for messages from KiCad
-    window.addEventListener('message', handleKiCadMessage);
+    window.addEventListener("message", handleKiCadMessage);
 
     // Process any messages that were stored by the bridge before this component mounted
     if (window.kicadMessages && window.kicadMessages.length > 0) {
-      window.kicadMessages.forEach(message => processMessage(message));
+      window.kicadMessages.forEach((message) => processMessage(message));
       // Clear the stored messages
       window.kicadMessages = [];
     }
 
     // Update the kiclient postMessage to process messages directly
     if (window.kiclient) {
-      const previousPost = typeof window.kiclient.postMessage === "function" ? window.kiclient.postMessage.bind(window.kiclient) : null;
-      
+      const previousPost =
+        typeof window.kiclient.postMessage === "function"
+          ? window.kiclient.postMessage.bind(window.kiclient)
+          : null;
+
       window.kiclient.postMessage = function (incoming: string) {
         processMessage(incoming);
         if (previousPost) {
@@ -102,7 +113,7 @@ export default function KicadLibraryPage() {
 
     // Clean up event listener on unmount
     return () => {
-      window.removeEventListener('message', handleKiCadMessage);
+      window.removeEventListener("message", handleKiCadMessage);
     };
   }, []);
 
@@ -119,16 +130,16 @@ export default function KicadLibraryPage() {
             const newSessionMessage = {
               version: 1,
               message_id: messageIdCounter,
-              command: 'NEW_SESSION'
+              command: "NEW_SESSION",
             };
 
             sendMessageToKiCad(newSessionMessage);
-            setMessageIdCounter(prev => prev + 1);
+            setMessageIdCounter((prev) => prev + 1);
 
             // Set another timeout to check if we get a session ID
             setTimeout(() => {
               if (!sessionId) {
-                setError('Failed to get session ID from KiCad');
+                setError("Failed to get session ID from KiCad");
               }
             }, 5000); // Timeout after another 5 seconds if no session ID received
           }
@@ -138,20 +149,22 @@ export default function KicadLibraryPage() {
         await sendPlaceComponentCommand();
       }
     } catch (error) {
-      console.error('Error in handlePlaceComponent:', error);
-      setError('Failed to place component: ' + (error as Error).message);
+      console.error("Error in handlePlaceComponent:", error);
+      setError("Failed to place component: " + (error as Error).message);
     }
   };
 
   // Function to compute SHA256 hash
   const computeSHA256 = async (data: ArrayBuffer): Promise<string> => {
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   };
 
   // Function to download asset and calculate size and SHA256
-  const processAsset = async (asset: any): Promise<{size_bytes: number, sha256: string}> => {
+  const processAsset = async (
+    asset: any,
+  ): Promise<{ size_bytes: number; sha256: string }> => {
     try {
       const response = await fetch(asset.download_url);
       const data = await response.arrayBuffer();
@@ -169,32 +182,32 @@ export default function KicadLibraryPage() {
     if (!idToUse) return;
 
     // Process each asset to get size and SHA256
-    const MPN = 'LM73';
+    const MPN = "LM73";
     const assets = [
       {
-        asset_type: 'symbol',
+        asset_type: "symbol",
         name: MPN,
         target_library: `nextpcb-${MPN}`,
         target_name: MPN,
-        content_type: 'application/octet-stream',
-        download_url: samplePart.symbol
+        content_type: "application/octet-stream",
+        download_url: samplePart.symbol,
       },
       {
-        asset_type: 'footprint',
+        asset_type: "footprint",
         name: MPN,
-        target_library: 'nextpcb',
+        target_library: "nextpcb",
         target_name: MPN,
-        content_type: 'application/octet-stream',
-        download_url: samplePart.footprint
+        content_type: "application/octet-stream",
+        download_url: samplePart.footprint,
       },
       {
-        asset_type: '3dmodel',
+        asset_type: "3dmodel",
         name: MPN,
-        target_library: 'nextpcb',
+        target_library: "nextpcb",
         target_name: MPN,
-        content_type: 'application/octet-stream',
-        download_url: samplePart['3dmodel']
-      }
+        content_type: "application/octet-stream",
+        download_url: samplePart["3dmodel"],
+      },
     ];
 
     try {
@@ -205,60 +218,66 @@ export default function KicadLibraryPage() {
           return {
             ...asset,
             size_bytes,
-            sha256
+            sha256,
           };
-        })
+        }),
       );
 
       const placeComponentMessage = {
         version: 1,
         session_id: idToUse,
         message_id: messageIdCounter,
-        command: 'DL_COMPONENT',  // TODO change to 'PLACE_COMPONENT'
+        command: "DL_COMPONENT", // TODO change to 'PLACE_COMPONENT'
         parameters: {
-          part_id: 'LM73',
-          display_name: 'LM73 Temperature Sensor',
-          mode: 'SAVE', // TODO change to 'PLACE'
-          assets: processedAssets
-        }
+          part_id: "LM73",
+          display_name: "LM73 Temperature Sensor",
+          mode: "SAVE", // TODO change to 'PLACE'
+          assets: processedAssets,
+        },
       };
 
       sendMessageToKiCad(placeComponentMessage);
-      setMessageIdCounter(prev => prev + 1);
+      setMessageIdCounter((prev) => prev + 1);
     } catch (error) {
-      console.error('Error processing assets:', error);
-      setError('Failed to process assets: ' + (error as Error).message);
+      console.error("Error processing assets:", error);
+      setError("Failed to process assets: " + (error as Error).message);
     }
   };
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4 text-gray-100">KiCad Library Panel</h1>
-      
+      <h1 className="text-2xl font-bold mb-4 text-gray-100">
+        KiCad Library Panel
+      </h1>
+
       {error && (
         <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
-      
-      <button 
-        onClick={handlePlaceComponent} 
+
+      <button
+        onClick={handlePlaceComponent}
         className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded mb-4"
       >
         Place Component
       </button>
-      
+
       {sessionId && (
         <div className="bg-green-900 border border-green-700 text-green-300 px-4 py-3 rounded mb-4">
           Session ID: {sessionId}
         </div>
       )}
-      
+
       <div className="bg-gray-800 p-4 rounded mb-4">
-        <h2 className="text-xl font-semibold mb-2 text-gray-100">Sample Part</h2>
-        <pre className="whitespace-pre-wrap text-gray-300">{JSON.stringify(samplePart, null, 2)}</pre>
+        <h2 className="text-xl font-semibold mb-2 text-gray-100">
+          Sample Part
+        </h2>
+        <pre className="whitespace-pre-wrap text-gray-300">
+          {JSON.stringify(samplePart, null, 2)}
+        </pre>
       </div>
-      
+
       <div className="bg-gray-800 p-4 rounded">
         <h2 className="text-xl font-semibold mb-2 text-gray-100">Console</h2>
         <div className="border border-gray-700 rounded p-2 max-h-60 overflow-y-auto">
@@ -266,14 +285,18 @@ export default function KicadLibraryPage() {
             <p className="text-gray-500">No messages yet</p>
           ) : (
             consoleMessages.map((msg, index) => (
-              <div 
-                key={index} 
-                className={`mb-2 p-2 rounded ${msg.type === 'send' ? 'bg-blue-900/50' : 'bg-green-900/50'}`}
+              <div
+                key={index}
+                className={`mb-2 p-2 rounded ${msg.type === "send" ? "bg-blue-900/50" : "bg-green-900/50"}`}
               >
-                <div className={`text-sm font-semibold ${msg.type === 'send' ? 'text-blue-400' : 'text-green-400'}`}>
-                  {msg.type === 'send' ? 'Sent:' : 'Received:'}
+                <div
+                  className={`text-sm font-semibold ${msg.type === "send" ? "text-blue-400" : "text-green-400"}`}
+                >
+                  {msg.type === "send" ? "Sent:" : "Received:"}
                 </div>
-                <pre className="text-sm whitespace-pre-wrap text-gray-300">{msg.message}</pre>
+                <pre className="text-sm whitespace-pre-wrap text-gray-300">
+                  {msg.message}
+                </pre>
               </div>
             ))
           )}
