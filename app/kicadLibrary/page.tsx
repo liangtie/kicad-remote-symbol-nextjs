@@ -227,11 +227,11 @@ export default function KicadLibraryPage() {
         version: 1,
         session_id: idToUse,
         message_id: messageIdCounter,
-        command: "DL_COMPONENT", // TODO change to 'PLACE_COMPONENT'
+        command: "PLACE_COMPONENT", // NOTE: 'DL_COMPONENT' / 'PLACE_COMPONENT'
         parameters: {
           part_id: "LM73",
           display_name: "LM73 Temperature Sensor",
-          mode: "SAVE", // TODO change to 'PLACE'
+          mode: "PLACE", // NOTE: 'SAVE' / 'PLACE'
           assets: processedAssets,
         },
       };
